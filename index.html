@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Kirim-Chiqimlar Daftari (Kengaytirilgan)</title>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            color: #0f172a;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 6px 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box; /* Padding hisobga olinishi uchun */
+        }
+
+        button {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+        
+        /* O'chirish tugmasi */
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #dc2626;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            font-size: 1.2em;
+            transition: color 0.2s;
+            width: auto;
+        }
+        .delete-btn:hover {
+            color: #991b1b;
+        }
+
+        .day-block {
+            background: #f1f5f9;
+            margin-top: 20px;
+            border-radius: 10px;
+            padding: 10px 15px;
+            border-left: 5px solid #64748b;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 10px 8px;
+            text-align: left;
+        }
+        
+        td:nth-child(3), th:nth-child(3) {
+            text-align: right; /* Summa ustuni o'ng tomonga */
+        }
+
+        th {
+            background: #e2e8f0;
+            font-weight: 700;
+        }
+
+        tfoot td {
+            font-weight: bold;
+            background: #e0f2fe;
+        }
+
+        .income {
+            color: #059669;
+            font-weight: 600;
+        }
+
+        .expense {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
+        .totals {
+            margin-top: 25px;
+            padding: 15px;
+            border-top: 2px solid #e2e8f0;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 2.0;
+        }
+        
+        .report-section {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #bae6fd;
+            background-color: #f0f9ff;
+            border-radius: 8px;
+        }
+        
+        .report-details {
+            margin-top: 15px;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>📘 Kundalik Kirim va Chiqimlar</h1>
+
+    <div class="container">
+        <h2>Yangi Yozuv Kiritish</h2>
+        <label>Sana:</label>
+        <input type="date" id="date">
+
+        <label>Tur (Kirim yoki Chiqim):</label>
+        <select id="category">
+            <option value="">Tanlang...</option>
+            <option value="kirim">Kirim (daromad)</option>
+            <option value="chiqim">Chiqim (xarajat)</option>
+        </select>
+
+        <label>Tavsif:</label>
+        <input type="text" id="type" placeholder="Masalan: Ish haqi, oziq-ovqat...">
+
+        <label>Summasi (so'm):</label>
+        <input type="number" id="amount" placeholder="Masalan: 50000">
+
+        <button onclick="addRecord()">➕ Yozuvni Qo‘shish</button>
+        
+        <div class="totals">
+            💰 Umumiy kirim: <span id="totalIncome">0</span> so‘m<br>
+            💸 Umumiy chiqim: <span id="totalExpense">0</span> so‘m<br>
+            ⚖️ Sof foyda (balans): <span id="netProfit">0</span> so‘m
+        </div>
+        
+        <hr>
+
+        <div class="report-section">
+            <h2>📊 Oylik Hisobot</h2>
+            <select id="monthSelector" style="width: 70%; display: inline-block;"></select>
+            <button onclick="showMonthlyReport()" style="width: 28%; display: inline-block; margin-left: 2%;">Hisobotni ko‘rish</button>
+            <div id="monthlyReportDetails" class="report-details">
+                <p>Oylik statistikani ko'rish uchun oyni tanlang.</p>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <h2>📜 Barcha Yozuvlar (Eng yangi sana yuqorida)</h2>
+        <div id="records"></div>
+        
+    </div>
+
+    <script>
+        let records = JSON.parse(localStorage.getItem("kirimChiqimlar")) || {};
+
+        function renderRecords() {
+            const container = document.getElementById("records");
+            const totalIncomeElem = document.getElementById("totalIncome");
+            const totalExpenseElem = document.getElementById("totalExpense");
+            const netProfitElem = document.getElementById("netProfit");
+            container.innerHTML = "";
+            let totalIncome = 0;
+            let totalExpense = 0;
+
+            // Sanalarni B-A tartibida saralash (eng yangi sana yuqorida)
+            const sortedDates = Object.keys(records).sort().reverse();
+            
+            // Oy tanlash maydonini yangilash
+            populateMonthSelector();
+
+            sortedDates.forEach(date => {
+                const dayData = records[date];
+                if (dayData.length === 0) return; // Bo'sh kunni o'tkazib yuborish
+                
+                let dayIncome = 0;
+                let dayExpense = 0;
+
+                const block = document.createElement("div");
+                block.classList.add("day-block");
+                block.innerHTML = `<h3>📅 ${date}</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%;">Tur</th>
+                  <th style="width: 65%;">Tavsif</th>
+                  <th style="width: 15%; text-align: right;">Summasi (so'm)</th>
+                  <th style="width: 5%;"></th> </tr>
+              </thead>
+              <tbody id="day-${date.replaceAll("-", "")}"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2">Jami kirim:</td>
+                  <td id="inc-${date.replaceAll("-", "")}" style="text-align: right;">0</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td colspan="2">Jami chiqim:</td>
+                  <td id="exp-${date.replaceAll("-", "")}" style="text-align: right;">0</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>`;
+
+                const tbody = block.querySelector(`#day-${date.replaceAll("-", "")}`);
+
+                dayData.forEach((item, index) => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+              <td class="${item.category === 'kirim' ? 'income' : 'expense'}">
+                ${item.category === 'kirim' ? 'Kirim' : 'Chiqim'}
+              </td>
+              <td>${item.type}</td>
+              <td style="text-align: right;">${item.amount.toLocaleString()}</td>
+              <td>
+                  <button class="delete-btn" onclick="deleteRecord('${date}', ${index})">❌</button>
+              </td>`;
+                    tbody.appendChild(row);
+
+                    if (item.category === "kirim") dayIncome += item.amount;
+                    else dayExpense += item.amount;
+                });
+
+                block.querySelector(`#inc-${date.replaceAll("-", "")}`).textContent = dayIncome.toLocaleString();
+                block.querySelector(`#exp-${date.replaceAll("-", "")}`).textContent = dayExpense.toLocaleString();
+
+                totalIncome += dayIncome;
+                totalExpense += dayExpense;
+
+                container.appendChild(block);
+            });
+
+            totalIncomeElem.textContent = totalIncome.toLocaleString();
+            totalExpenseElem.textContent = totalExpense.toLocaleString();
+            netProfitElem.textContent = (totalIncome - totalExpense).toLocaleString();
+            netProfitElem.style.color = (totalIncome - totalExpense) >= 0 ? '#059669' : '#dc2626';
+        }
+
+        // Yozuvni O'chirish funksiyasi
+        function deleteRecord(date, index) {
+            if (confirm(`Siz "${records[date][index].type}" yozuvini (${date}) o'chirishni xohlaysizmi?`)) {
+                records[date].splice(index, 1); // Arraydan elementni o'chirish
+                
+                // Agar kun ichida boshqa yozuv qolmasa, kunni ham o'chiramiz
+                if (records[date].length === 0) {
+                    delete records[date];
+                }
+                
+                localStorage.setItem("kirimChiqimlar", JSON.stringify(records));
+                renderRecords(); // Ro'yxatni qayta chizish
+            }
+        }
+
+        function addRecord() {
+            const date = document.getElementById("date").value;
+            const category = document.getElementById("category").value;
+            const type = document.getElementById("type").value.trim();
+            const amount = Number(document.getElementById("amount").value);
+
+            if (!date || !category || !type || !amount || amount <= 0) {
+                alert("Iltimos, barcha maydonlarni to‘g‘ri to‘ldiring!");
+                return;
+            }
+
+            if (!records[date]) records[date] = [];
+            
+            // ID o'rniga oddiy index ishlatildi
+            records[date].push({ category, type, amount, timestamp: new Date().getTime() }); 
+
+            localStorage.setItem("kirimChiqimlar", JSON.stringify(records));
+
+            // Kirish maydonlarini tozalash
+            document.getElementById("type").value = "";
+            document.getElementById("amount").value = "";
+            document.getElementById("category").value = "";
+
+            renderRecords();
+        }
+
+        // Oy tanlash maydonini (select) ma'lumotlar bilan to'ldirish
+        function populateMonthSelector() {
+            const selector = document.getElementById("monthSelector");
+            selector.innerHTML = '<option value="">Oyni tanlang...</option>';
+            const months = new Set();
+
+            Object.keys(records).forEach(date => {
+                // Yil-oy formatini olish (2025-11)
+                const yearMonth = date.substring(0, 7); 
+                months.add(yearMonth);
+            });
+            
+            // Oylarni teskari tartibda saralash (eng yangi oy yuqorida)
+            const sortedMonths = Array.from(months).sort().reverse(); 
+
+            sortedMonths.forEach(ym => {
+                const parts = ym.split("-");
+                const year = parts[0];
+                const monthIndex = parseInt(parts[1], 10) - 1; // 0-11 gacha index
+                const monthNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+                
+                const option = document.createElement("option");
+                option.value = ym;
+                option.textContent = `${monthNames[monthIndex]} ${year}`;
+                selector.appendChild(option);
+            });
+        }
+
+        // Oylik hisobotni ko'rsatish funksiyasi
+        function showMonthlyReport() {
+            const selectedMonth = document.getElementById("monthSelector").value;
+            const reportDetails = document.getElementById("monthlyReportDetails");
+            
+            if (!selectedMonth) {
+                reportDetails.innerHTML = '<p style="color: red;">Iltimos, avval oyni tanlang!</p>';
+                return;
+            }
+
+            let monthlyIncome = 0;
+            let monthlyExpense = 0;
+            const incomeCategories = {};
+            const expenseCategories = {};
+
+            Object.keys(records).forEach(date => {
+                if (date.startsWith(selectedMonth)) {
+                    records[date].forEach(item => {
+                        if (item.category === 'kirim') {
+                            monthlyIncome += item.amount;
+                            incomeCategories[item.type] = (incomeCategories[item.type] || 0) + item.amount;
+                        } else {
+                            monthlyExpense += item.amount;
+                            expenseCategories[item.type] = (expenseCategories[item.type] || 0) + item.amount;
+                        }
+                    });
+                }
+            });
+
+            const netBalance = monthlyIncome - monthlyExpense;
+            const monthName = document.getElementById("monthSelector").options[document.getElementById("monthSelector").selectedIndex].text;
+            
+            let incomeList = Object.keys(incomeCategories).map(key => `${key}: ${incomeCategories[key].toLocaleString()} so'm`).join('<br>');
+            let expenseList = Object.keys(expenseCategories).map(key => `${key}: ${expenseCategories[key].toLocaleString()} so'm`).join('<br>');
+
+            reportDetails.innerHTML = `
+                <h3>${monthName} oyi statistikasi:</h3>
+                <p>
+                    <strong>💰 Jami Kirim:</strong> <span class="income">${monthlyIncome.toLocaleString()} so'm</span><br>
+                    <strong>💸 Jami Chiqim:</strong> <span class="expense">${monthlyExpense.toLocaleString()} so'm</span><br>
+                    <hr>
+                    <strong>⚖️ Sof Balans:</strong> <span style="color: ${netBalance >= 0 ? '#059669' : '#dc2626'};">${netBalance.toLocaleString()} so'm</span>
+                </p>
+                
+                <h4>Kirimlar turlari bo'yicha:</h4>
+                <p>${incomeList || 'Ma\'lumotlar yo\'q'}</p>
+                
+                <h4>Chiqimlar turlari bo'yicha:</h4>
+                <p>${expenseList || 'Ma\'lumotlar yo\'q'}</p>
+            `;
+        }
+
+        renderRecords();
+    </script>
+</body>
+
+</html>
